@@ -4,23 +4,22 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import type { Poliza, SummaryResponse } from '../interfaces/responses';
+import type { PoliciesSummaryRawResponse, Poliza } from '../interfaces/responses';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const PoliciesPage = () => {
   const [policies, setPolicies] = useState<Poliza[]>([]);
-  const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [summary, setSummary] = useState<PoliciesSummaryRawResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [policiesRes, summaryRes] = await Promise.all([
-          api.get('/?limit=100'),
-          api.get('/summary')
+          api.get('/policies/?limit=100'),
+          api.get('/policies/summary')
         ]);
-        console.log(policiesRes.data);
         setPolicies(policiesRes.data);
         setSummary(summaryRes);
       } catch (error) {
@@ -44,21 +43,24 @@ const PoliciesPage = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={summary?.distributionByType}
+                data={summary?.metrics_by_type.map(item => ({
+                  ...item,
+                  premium_sum: Number(item.premium_sum)
+                }))}
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
                 outerRadius={80}
                 paddingAngle={5}
-                dataKey="value"
-                nameKey="name"
+                dataKey="premium_sum"
+                nameKey="policy_type"
                 label
               >
-                {summary?.distributionByType.map((entry, index) => (
+                {summary?.metrics_by_type.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -67,12 +69,37 @@ const PoliciesPage = () => {
         <div className="chart-card">
           <h3>Prima Total (USD) por Región</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={summary?.premiumByRegion}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <BarChart
+              data={summary?.count_by_region.map(item => ({
+                ...item,
+                count: Number(item.count)
+              }))}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="region"
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `${value}`}
+              />
+              <Tooltip
+                cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              />
+              <Bar
+                dataKey="count"
+                fill="#3b82f6"
+                radius={[4, 4, 0, 0]}
+                barSize={40}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

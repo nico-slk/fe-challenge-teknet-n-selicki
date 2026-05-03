@@ -1,13 +1,30 @@
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 class ApiService {
-  private async request(endpoint: string, options: RequestInit = {}) {
+
+  private getCache(key: string) {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
+  }
+
+  private setCache(key: string, data: unknown) {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  private async request(endpoint: string, options: RequestInit = {}, useCache = false) {
     const url = `${BASE_URL}${endpoint}`;
+
+    if (useCache && options.method === 'GET') {
+      const cachedData = this.getCache(endpoint);
+      if (cachedData) {
+        console.log(`[Cache] Retornando datos de: ${endpoint}`);
+        return cachedData;
+      }
+    }
 
     const config = {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
         ...options.headers,
       },
     };
@@ -23,15 +40,19 @@ class ApiService {
         throw { status: response.status, ...errorData };
       }
 
-      return await response.json();
+      const data = await response.json();
+
+      if (useCache) this.setCache(endpoint, data);
+
+      return data;
     } catch (error) {
       console.error("Fetch Error:", error);
       throw error;
     }
   }
 
-  get(endpoint: string, options?: RequestInit) {
-    return this.request(endpoint, { ...options, method: 'GET' });
+  get(endpoint: string, useCache = true, options?: RequestInit) {
+    return this.request(endpoint, { ...options, method: 'GET' }, useCache);
   }
 
   public post(endpoint: string, body: FormData | object) {
@@ -45,7 +66,10 @@ class ApiService {
       }
     };
 
-    return this.request(endpoint, options);
+    const metrics = this.request(endpoint, options);
+    this.setCache("metrics", metrics);
+
+    return metrics;
   }
 }
 

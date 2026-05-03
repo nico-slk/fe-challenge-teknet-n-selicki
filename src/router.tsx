@@ -3,6 +3,7 @@ import App from './App';
 import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import Policies from './pages/Policies';
+import ErrorTable from './pages/ErrorTable';
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,10 @@ export const router = createBrowserRouter([
       {
         path: "policies",
         element: <Policies />,
+      },
+      {
+        path: "errors",
+        element: <ErrorTable />,
       },
     ],
   },

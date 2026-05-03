@@ -7,6 +7,7 @@ const UploadPage = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<UploadResponse>();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -19,37 +20,68 @@ const UploadPage = () => {
     setIsDragging(false);
   };
 
+  const resetStates = () => {
+    setErrorMessage(null);
+    setResults(undefined);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    resetStates();
+
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile?.type === "text/csv" || droppedFile?.name.endsWith('.csv')) {
       setFile(droppedFile);
     } else {
-      alert("Por favor, sube un archivo CSV válido.");
+      setErrorMessage("El formato de archivo no es válido. Por favor, sube un CSV.");
+      setFile(null);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      setFile(e.target.files[0]);
+    resetStates();
+    const selectedFile = e.target.files?.[0];
+
+    if (selectedFile) {
+      if (selectedFile.name.endsWith('.csv')) {
+        setFile(selectedFile);
+      } else {
+        setErrorMessage("Por favor, selecciona un archivo CSV.");
+      }
     }
+
+    e.target.value = '';
   };
 
   const uploadFile = async () => {
     if (!file) return;
 
+    const fileKey = `last_upload_${file.name}_${file.size}`;
+    const cachedResult = localStorage.getItem(fileKey);
+
+    if (cachedResult) {
+      console.log("El archivo es idéntico al anterior. Cargando resultado de caché.");
+      setResults(JSON.parse(cachedResult));
+      setFile(null);
+      return;
+    }
+
     const formData = new FormData();
-    formData.append('file', file); // 'file' debe coincidir con tu backend
+    formData.append('file', file);
 
     setUploading(true);
+
     try {
       const data = await api.post('/upload', formData);
+      localStorage.setItem(fileKey, JSON.stringify(data));
       setResults(data);
       setFile(null);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error uploading file:", error);
-      alert("Error al procesar el archivo.");
+      const err = error as { response?: { data?: { message?: string; }; }; message?: string; };
+      const msg = err.response?.data?.message || err.message || "Error inesperado al conectar con el servidor.";
+      setErrorMessage(msg);
     } finally {
       setUploading(false);
     }
@@ -60,7 +92,10 @@ const UploadPage = () => {
       <h2>Carga de Pólizas</h2>
 
       <div
-        className={`drop-zone ${isDragging ? 'dragging' : ''} ${file ? 'has-file' : ''}`}
+        className={`drop-zone 
+          ${isDragging ? 'dragging' : ''} 
+          ${file ? 'has-file' : ''} 
+          ${errorMessage ? 'has-error' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -77,10 +112,13 @@ const UploadPage = () => {
         {file ? (
           <p className="file-info">📄 {file.name}</p>
         ) : (
-          <p>Arrastra tu CSV aquí o haz clic para seleccionar</p>
+          <div className="zone-content">
+            <p>{errorMessage ? '❌' : '☁️'}</p>
+            <p>{errorMessage || 'Arrastra tu CSV aquí o haz clic para seleccionar'}</p>
+          </div>
         )}
       </div>
-
+      {errorMessage && <p className="inline-error-msg">{errorMessage}</p>}
       <button
         className="upload-btn"
         onClick={(e) => { e.stopPropagation(); uploadFile(); }}
@@ -89,14 +127,13 @@ const UploadPage = () => {
         {uploading ? 'Procesando...' : 'Subir Archivo'}
       </button>
 
-      {/* Aquí irían los componentes de Progress Bar y Tabla de Errores que pide el punto 6A */}
       {results && (
         <div className="results-summary">
           <h3>Resultado de Operación: {results.metrics.operation_id}</h3>
           <ul>
-            <li>Insertados: {results.metrics.inserted_count}</li>
-            <li>Rechazados: {results.metrics.rejected_count}</li>
-            <li>Advertencias: {results.metrics.warning_count}</li>
+            <li className="results-summary-success">Insertados: <p>{results.metrics.inserted_count}</p></li>
+            <li className="results-summary-rejected">Rechazados: <p>{results.metrics.rejected_count}</p></li>
+            <li className="results-summary-warn">Advertencias: <p>{results.metrics.warning_count}</p></li>
           </ul>
         </div>
       )}
