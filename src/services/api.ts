@@ -55,21 +55,56 @@ class ApiService {
     return this.request(endpoint, { ...options, method: 'GET' }, useCache);
   }
 
-  public post(endpoint: string, body: FormData | object) {
-    const isFormData = body instanceof FormData;
+  // public post(endpoint: string, body: FormData | object) {
+  //   const isFormData = body instanceof FormData;
 
-    const options: RequestInit = {
-      method: 'POST',
-      body: isFormData ? body : JSON.stringify(body),
-      headers: {
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      }
-    };
+  //   const options: RequestInit = {
+  //     method: 'POST',
+  //     body: isFormData ? body : JSON.stringify(body),
+  //     headers: {
+  //       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+  //     }
+  //   };
 
-    const metrics = this.request(endpoint, options);
-    this.setCache("metrics", metrics);
+  //   const metrics = this.request(endpoint, options);
+  //   this.setCache("metrics", metrics);
 
-    return metrics;
+  //   return metrics;
+  // }
+
+  public uploadWithProgress(
+    endpoint: string,
+    formData: FormData,
+    onProgress: (percent: number) => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const url = `${BASE_URL}${endpoint}`;
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded * 100) / event.total);
+          onProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const data = JSON.parse(xhr.responseText);
+          this.setCache("metrics", data);
+          resolve(data);
+        } else {
+          const errorData = JSON.parse(xhr.responseText || '{}');
+          reject({ status: xhr.status, ...errorData });
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Error de red"));
+
+      xhr.open('POST', url);
+      xhr.send(formData);
+    });
   }
 }
 

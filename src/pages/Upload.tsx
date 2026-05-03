@@ -8,6 +8,7 @@ const UploadPage = () => {
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<UploadResponse>();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,10 +72,14 @@ const UploadPage = () => {
     formData.append('file', file);
 
     setUploading(true);
+    setUploadProgress(0);
 
     try {
-      const data = await api.post('/upload', formData);
-      localStorage.setItem(fileKey, JSON.stringify(data));
+      const data = await api.uploadWithProgress(
+        '/upload',
+        formData,
+        (percent) => setUploadProgress(percent)
+      );
       setResults(data);
       setFile(null);
     } catch (error: unknown) {
@@ -99,7 +104,7 @@ const UploadPage = () => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !uploading && fileInputRef.current?.click()}
       >
         <input
           type="file"
@@ -118,7 +123,21 @@ const UploadPage = () => {
           </div>
         )}
       </div>
+
       {errorMessage && <p className="inline-error-msg">{errorMessage}</p>}
+
+      {uploading && (
+        <div className="progress-container">
+          <div className="progress-bar-wrapper">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+          <p className="progress-text">Subiendo: {uploadProgress}%</p>
+        </div>
+      )}
+
       <button
         className="upload-btn"
         onClick={(e) => { e.stopPropagation(); uploadFile(); }}
