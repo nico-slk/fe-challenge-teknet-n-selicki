@@ -1,36 +1,33 @@
-import React, { useState } from 'react';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
+import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { useChat } from '../../hooks/useChat';
 
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: '¡Hola! Soy tu asistente de seguros. ¿En qué puedo ayudarte hoy?' }
-  ]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+
+  const { messages, sendMessage, loading } = useChat();
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
 
   const toggleChat = () => setIsOpen(!isOpen);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
-    const userMsg: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMsg]);
+    const messageToSend = input;
     setInput('');
-    setIsTyping(true);
 
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Recibí tu mensaje: "${userMsg.content}". Próximamente podré analizar tus pólizas.`
-      }]);
-      setIsTyping(false);
-    }, 1500);
+    await sendMessage(messageToSend);
   };
 
   return (
@@ -46,22 +43,35 @@ const ChatBot = () => {
           </div>
 
           <div className="chatbot-messages">
-            {messages.map((msg, index) => (
+            <div className="message assistant">
+              ¡Hola! Soy tu asistente de seguros. ¿En qué puedo ayudarte hoy?
+            </div>
+
+            {messages.map((msg, index: number) => (
               <div key={index} className={`message ${msg.role}`}>
-                {msg.content}
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+
+                {msg.mode === 'rule-based' && (
+                  <small className="mode-badge">⚠️ Modo básico (sin IA)</small>
+                )}
               </div>
             ))}
-            {isTyping && <div className="message assistant typing">Escribiendo...</div>}
+
+            {loading && <div className="message assistant typing">Analizando datos...</div>}
+            <div ref={messagesEndRef} />
           </div>
 
           <form className="chatbot-input" onSubmit={handleSend}>
             <input
               type="text"
-              placeholder="Pregunta sobre tus pólizas..."
+              placeholder={loading ? "Esperando respuesta..." : "Pregunta sobre tus pólizas..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              disabled={loading}
             />
-            <button type="submit">Enviar</button>
+            <button type="submit" disabled={loading || !input.trim()}>
+              {loading ? "..." : "Enviar"}
+            </button>
           </form>
         </div>
       )}

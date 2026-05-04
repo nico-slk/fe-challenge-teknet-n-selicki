@@ -23,7 +23,7 @@ function App() {
       <aside className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-icon">T</div>
-          <span>Teknet <small>v2.0</small></span>
+          <span>tekne <small>v2.0</small></span>
         </div>
 
         <nav className="sidebar-nav">

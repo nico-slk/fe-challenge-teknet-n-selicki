@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="footer-brand-section">
           <div className="footer-logo">
             <FiShield className="logo-icon" />
-            <span>Teknet <strong>Policies</strong></span>
+            <span>tekne <strong>Policies</strong></span>
           </div>
           <p className="footer-description">
             Plataforma avanzada para la gestión de pólizas y análisis de riesgos financieros.
